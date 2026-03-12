@@ -1,0 +1,130 @@
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+
+class TokenType(Enum):
+    LICZBA = "LICZBA"
+    IDENTYFIKATOR = "IDENTYFIKATOR"
+    PLUS = "PLUS"
+    MINUS = "MINUS"
+    RAZY = "RAZY"
+    DZIELENIE = "DZIELENIE"
+    NAWIAS_L = "NAWIAS_L"
+    NAWIAS_P = "NAWIAS_P"
+    KONIEC = "KONIEC"
+
+
+@dataclass
+class Token:
+    type: TokenType
+    value: str
+    column: int
+
+    def __str__(self) -> str:
+        return f"({self.type.value}, {self.value!r})"
+
+
+class ScannerError(Exception):
+    def __init__(self, message: str, column: int):
+        self.column = column
+        super().__init__(f"Błąd skanera w kolumnie {column}: {message}")
+
+
+class Scanner:
+    def __init__(self, text: str):
+        self.text = text
+        self.pos = 0
+
+    @property
+    def column(self) -> int:
+        return self.pos + 1
+
+    def _current(self) -> Optional[str]:
+        if self.pos < len(self.text):
+            return self.text[self.pos]
+        return None
+
+    def _advance(self):
+        self.pos += 1
+
+    def _skip_whitespace(self):
+        while self._current() is not None and self._current().isspace():
+            self._advance()
+
+    def _scan_int(self) -> Token:
+        start_col = self.column
+        digits: list[str] = []
+        while self._current() is not None and self._current().isdigit():
+            digits.append(self._current())
+            self._advance()
+        return Token(TokenType.LICZBA, "".join(digits), start_col)
+
+    def _scan_id(self) -> Token:
+        start_col = self.column
+        chars: list[str] = []
+        while self._current() is not None and (
+            self._current().isalpha() or self._current().isdigit()
+        ):
+            chars.append(self._current())
+            self._advance()
+        return Token(TokenType.IDENTYFIKATOR, "".join(chars), start_col)
+
+    def next_token(self) -> Token:
+        self._skip_whitespace()
+
+        if self._current() is None:
+            return Token(TokenType.KONIEC, "", self.column)
+
+        ch = self._current()
+        col = self.column
+
+        if ch.isdigit():
+            return self._scan_int()
+
+        if ch.isalpha():
+            return self._scan_id()
+
+        SINGLE_CHAR_TOKENS = {
+            "+": TokenType.PLUS,
+            "-": TokenType.MINUS,
+            "*": TokenType.RAZY,
+            "/": TokenType.DZIELENIE,
+            "(": TokenType.NAWIAS_L,
+            ")": TokenType.NAWIAS_P,
+        }
+        if ch in SINGLE_CHAR_TOKENS:
+            self._advance()
+            return Token(SINGLE_CHAR_TOKENS[ch], ch, col)
+
+        raise ScannerError(
+            f"nierozpoznany znak {ch!r}",
+            column=col,
+        )
+
+
+def scan_expression(expression: str) -> list[Token]:
+    scanner = Scanner(expression)
+    tokens: list[Token] = []
+
+    print(f"Wyrażenie: {expression!r}")
+
+    while True:
+        try:
+            token = scanner.next_token()
+        except ScannerError as e:
+            print(f"BŁĄD: {e}")
+            print(expression)
+            print(" " * (e.column - 1) + "^")
+            break
+
+        if token.type == TokenType.KONIEC:
+            print("(KONIEC, '')")
+            break
+
+        tokens.append(token)
+        print(token)
+
+    return tokens
+
+
