@@ -103,6 +103,19 @@ class Scanner:
         )
 
 
+def scan_to_tokens(expression: str) -> tuple[list[Token], ScannerError | None]:
+    scanner = Scanner(expression)
+    tokens: list[Token] = []
+    while True:
+        try:
+            token = scanner.next_token()
+        except ScannerError as e:
+            return tokens, e
+        if token.type == TokenType.KONIEC:
+            return tokens, None
+        tokens.append(token)
+
+
 def scan_expression(expression: str) -> list[Token]:
     scanner = Scanner(expression)
     tokens: list[Token] = []
